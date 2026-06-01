@@ -18,7 +18,9 @@ class ReActAgent:
 
     def get_system_prompt(self) -> str:
         """
+        [PHASE 4: SYSTEM PROMPT V2] 
         System prompt that instructs the agent to follow ReAct loop and output JSON for tools.
+        Updated based on Failure Analysis logs (Markdown wrapping issues and Hallucinated tools).
         """
         tool_descriptions = "\n".join([f"- {t['name']}: {t['description']}" for t in self.tools])
         return f"""
@@ -36,10 +38,11 @@ When you have enough information to answer the user's request, use this format:
 Thought: I now have the final answer.
 Final Answer: your detailed response to the user.
 
-CRITICAL RULES:
-1. 'Action' MUST be valid JSON matching the exact format.
-2. Only use the tools provided above. Do not hallucinate tools.
-3. NEVER output 'Observation:' yourself. The system will provide it.
+CRITICAL RULES (V2 UPDATES):
+1. 'Action' MUST be raw, valid JSON. DO NOT wrap it in Markdown code blocks (like ```json).
+2. ONLY use the exact tool names provided above. DO NOT guess or hallucinate tool names.
+3. If an Observation returns an Error, you MUST read the error and try a different approach or fix your JSON args.
+4. NEVER output 'Observation:' yourself. The system will provide it.
 """
 
     def run(self, user_input: str) -> str:

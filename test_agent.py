@@ -34,7 +34,7 @@ def main():
     agent = ReActAgent(llm=llm, tools=all_tools, max_steps=10)
     
     # 3. Chạy thử nghiệm
-    user_query = "Hãy phân tích cổ phiếu Nvidia (NVDA) cho tôi. Cụ thể: 1. Lấy vài tin tức mới nhất. 2. Tính toán các chỉ số kỹ thuật (SMA, RSI) để xem xu hướng hiện tại. 3. Vẽ biểu đồ giá trong 6 tháng qua. Cuối cùng, tổng hợp lại và cho tôi lời khuyên đầu tư. Trả lời bằng tiếng Việt, giải thích rõ ràng."
+    user_query = "Hãy phân tích cổ phiếu Nvidia (NVDA) và Apple (AAPL) cho tôi. Cụ thể: 1. Lấy vài tin tức mới nhất của 2 cổ phiếu. 2. Tính toán các chỉ số kỹ thuật (SMA, RSI) để xem xu hướng hiện tại. 3. Vẽ biểu đồ giá trong 6 tháng qua của 2 cổ phiếu. Cuối cùng, tổng hợp lại và cho tôi lời khuyên đầu tư. Trả lời bằng tiếng Việt, giải thích rõ ràng."
     print(f"\nUser Query: {user_query}")
     
     print("\n--- Bắt đầu suy nghĩ ---")

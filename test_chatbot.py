@@ -27,7 +27,7 @@ def main():
         raise ValueError(f"Unsupported provider: {provider}")
     
     # 2. Tạo query phức tạp
-    user_query = "Bạn hãy kiểm tra giá cổ phiếu của Apple (AAPL) và NVIDIA (NVDA) hiện tại là bao nhiêu, và tìm xem có tin tức gì mới về Apple và Nvidia không. Dựa vào đó hãy cho tôi lời khuyên về việc nên mua cổ phiếu nào, tại sao? Trả lời bằng tiếng Việt, giải thích rõ ràng"
+    user_query = "Hãy phân tích cổ phiếu Nvidia (NVDA) và Apple (AAPL) cho tôi. Cụ thể: 1. Lấy vài tin tức mới nhất của 2 cổ phiếu. 2. Tính toán các chỉ số kỹ thuật (SMA, RSI) để xem xu hướng hiện tại. 3. Vẽ biểu đồ giá trong 6 tháng qua của 2 cổ phiếu. Cuối cùng, tổng hợp lại và cho tôi lời khuyên đầu tư. Trả lời bằng tiếng Việt, giải thích rõ ràng."
     print(f"\nUser Query: {user_query}")
     
     # 3. Chạy Chatbot thông thường (Chỉ dùng Prompt, KHÔNG có tools)

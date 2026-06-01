@@ -59,9 +59,13 @@ CRITICAL RULES (V2 UPDATES):
         steps = 0
 
         while steps < self.max_steps:
-            # TODO: Generate LLM response
             result = self.llm.generate(current_prompt, system_prompt=self.get_system_prompt())
             content = result.get("content", "")
+            
+            # Prevent hallucinated Observations
+            obs_index = content.find("Observation:")
+            if obs_index != -1:
+                content = content[:obs_index].strip()
             
             # Print for visibility in the lab
             print(f"\n[Step {steps + 1}] LLM Output:\n{content}")

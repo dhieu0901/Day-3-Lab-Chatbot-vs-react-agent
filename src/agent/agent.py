@@ -1,29 +1,28 @@
+import json
 import os
 import re
-import json
 import time
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Union
+
 from src.core.llm_provider import LLMProvider
 from src.telemetry.logger import logger
 
+
 class ReActAgent:
     """
-    A ReAct-style Agent that follows the Thought-Action-Observation loop.
+    ReAct Agent: Thought → Action → Observation → Final Answer
     """
-    
+
     def __init__(self, llm: LLMProvider, tools: List[Dict[str, Any]], max_steps: int = 10):
         self.llm = llm
         self.tools = tools
         self.max_steps = max_steps
-        self.history = []
+        self.trace: List[Dict[str, str]] = []
 
     def get_system_prompt(self) -> str:
-        """
-        [PHASE 4: SYSTEM PROMPT V2] 
-        System prompt that instructs the agent to follow ReAct loop and output JSON for tools.
-        Updated based on Failure Analysis logs (Markdown wrapping issues and Hallucinated tools).
-        """
-        tool_descriptions = "\n".join([f"- {t['name']}: {t['description']}" for t in self.tools])
+        tool_descriptions = "\n".join(
+            f"- {t['name']}: {t['description']}" for t in self.tools
+        )
         return f"""
 You are an intelligent ReAct agent. You have access to the following tools:
 {tool_descriptions}
@@ -39,99 +38,171 @@ When you have enough information to answer the user's request, use this format:
 Thought: I now have the final answer.
 Final Answer: your detailed response to the user.
 
-CRITICAL RULES (V2 UPDATES):
+CRITICAL RULES (V2):
 1. 'Action' MUST be raw, valid JSON. DO NOT wrap it in Markdown code blocks (like ```json).
 2. ONLY use the exact tool names provided above. DO NOT guess or hallucinate tool names.
-3. If an Observation returns an Error, you MUST read the error and try a different approach or fix your JSON args.
+3. If an Observation returns an Error, read it and fix your args or try another tool.
 4. NEVER output 'Observation:' yourself. The system will provide it.
+5. Answer in the same language as the user.
 """
 
-    def run(self, user_input: str) -> str:
-        """
-        The ReAct loop logic.
-        1. Generate Thought + Action.
-        2. Parse Action and execute Tool.
-        3. Append Observation to prompt and repeat until Final Answer.
-        """
+    def run(self, user_input: str) -> Union[str, Dict[str, Any]]:
         logger.log_event("AGENT_START", {"input": user_input, "model": self.llm.model_name})
-        
-        current_prompt = user_input
-        steps = 0
 
-        while steps < self.max_steps:
-            result = self.llm.generate(current_prompt, system_prompt=self.get_system_prompt())
+        start = time.time()
+        self.trace = []
+        conversation = f"User question: {user_input}\n"
+        tools_used = 0
+        charts: List[Dict[str, str]] = []
+        indicators: List[Dict[str, Any]] = []
+        final_answer: Optional[str] = None
+
+        for step in range(self.max_steps):
+            result = self.llm.generate(conversation, system_prompt=self.get_system_prompt())
             content = result.get("content", "")
-            
-            # Prevent hallucinated Observations
+
+            # Prevent hallucinated Observations (from remote fix)
             obs_index = content.find("Observation:")
             if obs_index != -1:
                 content = content[:obs_index].strip()
-            
-            # Print for visibility in the lab
-            print(f"\n[Step {steps + 1}] LLM Output:\n{content}")
-            
-            # Check for Final Answer
-            final_answer_match = re.search(r"Final Answer:\s*(.*)", content, re.DOTALL | re.IGNORECASE)
-            if final_answer_match:
-                final_answer = final_answer_match.group(1).strip()
-                logger.log_event("AGENT_END", {"steps": steps + 1, "status": "success"})
-                return final_answer
-            
-            # Parse Thought/Action from result
-            action_start = content.find("Action:")
-            action_data = None
-            action_json_str = ""
-            
-            if action_start != -1:
-                json_start = content.find("{", action_start)
-                if json_start != -1:
-                    json_str = content[json_start:]
-                    for i in range(len(json_str), 0, -1):
-                        if json_str[i-1] == "}":
-                            try:
-                                action_data = json.loads(json_str[:i])
-                                action_json_str = json_str[:i]
-                                break
-                            except json.JSONDecodeError:
-                                continue
-                                
-            if action_data:
-                tool_name = action_data.get("tool")
-                tool_args = action_data.get("args", {})
-                
-                # Execute tool
-                print(f"--> Executing Tool: {tool_name} with {tool_args}")
-                observation = self._execute_tool(tool_name, tool_args)
-                print(f"--> Observation: {str(observation)[:200]}...") # Print snippet
-                
-                # Append Observation to prompt
-                current_prompt += f"\n\n{content}\nObservation: {observation}\n"
-            elif action_start != -1:
-                observation = "Error: Invalid JSON format in Action. Please output valid JSON."
-                current_prompt += f"\n\n{content}\nObservation: {observation}\n"
-                logger.log_event("LLM_METRIC", {"error": "JSON_PARSER_ERROR", "content": content})
-            else:
-                # Fallback if no valid Action or Final Answer
-                observation = "Error: No 'Action: {...}' or 'Final Answer: ...' found. Please follow the format."
-                current_prompt += f"\n\n{content}\nObservation: {observation}\n"
+
+            logger.log_event("LLM_METRIC", {
+                "step": step + 1,
+                "latency_ms": result.get("latency_ms"),
+                "usage": result.get("usage"),
+            })
+
+            thought = self._parse_thought(content)
+            if thought:
+                self.trace.append({
+                    "type": "thought",
+                    "label": f"Step {step + 1} — Thought",
+                    "content": thought,
+                })
+
+            final = self._parse_final_answer(content)
+            if final:
+                self.trace.append({"type": "answer", "label": "Final Answer", "content": final})
+                final_answer = final
+                break
+
+            action = self._parse_action(content)
+            if not action:
+                err = "Error: No valid Action JSON or Final Answer found."
+                self.trace.append({"type": "error", "label": "Parse Error", "content": content})
+                conversation += f"\n{content}\nObservation: {err}\n"
                 logger.log_event("LLM_METRIC", {"error": "FORMAT_ERROR", "content": content})
-                
-            steps += 1
-            time.sleep(12)  # Tránh lỗi Rate Limit khắt khe của Gemini (5 request/phút)
-            
-        logger.log_event("AGENT_END", {"steps": steps, "status": "timeout"})
-        return "Agent reached maximum steps without finding a final answer."
+                time.sleep(3)
+                continue
+
+            self.trace.append({
+                "type": "action",
+                "label": f"Step {step + 1} — Action",
+                "content": f"{action['tool']}({action['args']})",
+            })
+
+            observation = self._execute_tool(action["tool"], action["args"])
+            tools_used += 1
+            self._collect_artifacts(action["tool"], observation, charts, indicators)
+
+            self.trace.append({
+                "type": "observation",
+                "label": f"Step {step + 1} — Observation",
+                "content": observation[:2000],
+            })
+
+            logger.log_event("TOOL_CALL", {"tool": action["tool"], "args": action["args"]})
+
+            conversation += f"\n{content}\nObservation: {observation}\n"
+            time.sleep(3)
+
+        if not final_answer:
+            final_answer = "Agent reached maximum steps without finding a final answer."
+            self.trace.append({"type": "error", "label": "Timeout", "content": final_answer})
+
+        latency_ms = int((time.time() - start) * 1000)
+        logger.log_event("AGENT_END", {"steps": len(self.trace), "tools_used": tools_used})
+
+        return {
+            "mode": "agent",
+            "answer": final_answer,
+            "trace": self.trace,
+            "tools_used": tools_used,
+            "latency_ms": latency_ms,
+            "charts": charts,
+            "indicators": indicators,
+        }
+
+    def _parse_thought(self, text: str) -> Optional[str]:
+        match = re.search(
+            r"Thought:\s*(.+?)(?=\nAction:|\nFinal Answer:|$)",
+            text, re.DOTALL | re.IGNORECASE,
+        )
+        return match.group(1).strip() if match else None
+
+    def _parse_final_answer(self, text: str) -> Optional[str]:
+        match = re.search(r"Final Answer:\s*(.+)", text, re.DOTALL | re.IGNORECASE)
+        return match.group(1).strip() if match else None
+
+    def _parse_action(self, text: str) -> Optional[Dict[str, Any]]:
+        action_start = text.find("Action:")
+        if action_start == -1:
+            return None
+
+        json_start = text.find("{", action_start)
+        if json_start == -1:
+            return None
+
+        action_data = None
+        json_str = text[json_start:]
+        for i in range(len(json_str), 0, -1):
+            if json_str[i - 1] == "}":
+                try:
+                    action_data = json.loads(json_str[:i])
+                    break
+                except json.JSONDecodeError:
+                    continue
+
+        if not action_data or not action_data.get("tool"):
+            return None
+
+        return {
+            "tool": str(action_data["tool"]).strip(),
+            "args": action_data.get("args") or {},
+        }
+
+    def _collect_artifacts(
+        self,
+        tool_name: str,
+        observation: str,
+        charts: List[Dict[str, str]],
+        indicators: List[Dict[str, Any]],
+    ) -> None:
+        try:
+            data = json.loads(observation)
+        except json.JSONDecodeError:
+            return
+        if data.get("status") != "ok":
+            return
+
+        if tool_name == "plot_stock_chart":
+            filename = os.path.basename(data.get("file_path", ""))
+            if filename:
+                ticker = filename.replace("_chart.png", "").upper()
+                charts.append({"ticker": ticker, "filename": filename})
+        elif tool_name == "get_technical_indicators":
+            indicators.append(data)
 
     def _execute_tool(self, tool_name: str, args: Dict[str, Any]) -> str:
-        """
-        Helper method to execute tools dynamically.
-        """
         for tool in self.tools:
-            if tool['name'] == tool_name:
+            if tool["name"] == tool_name:
                 try:
-                    return tool['function'](**args)
+                    return tool["function"](**args)
                 except Exception as e:
-                    return f"Error executing tool {tool_name}: {str(e)}"
-                    
+                    return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
         logger.log_event("LLM_METRIC", {"error": "HALLUCINATION_ERROR", "tool_name": tool_name})
-        return f"Error: Tool '{tool_name}' not found. Check available tools."
+        return json.dumps(
+            {"status": "error", "message": f"Tool '{tool_name}' not found."},
+            ensure_ascii=False,
+        )

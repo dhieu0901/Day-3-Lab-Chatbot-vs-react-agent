@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatbot vs ReAct Agent — Lab Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon">⚡</span>
+        <div>
+          <h1>Chatbot vs ReAct Agent</h1>
+          <p>So sánh trực tiếp — cùng câu hỏi, hai cách xử lý khác nhau</p>
+        </div>
+      </div>
+      <div class="header-meta">
+        <span class="badge badge-chatbot">Chatbot = chỉ LLM</span>
+        <span class="badge badge-agent">Agent = LLM + Tools</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="prompt-section">
+      <label for="user-input">Câu hỏi của bạn</label>
+      <div class="prompt-row">
+        <textarea
+          id="user-input"
+          rows="2"
+          placeholder="VD: Giá AAPL hôm nay bao nhiêu? Cho tôi biết ngành nghề và tin tức mới nhất."
+        ></textarea>
+        <button id="run-btn" type="button">
+          <span class="btn-text">Chạy song song</span>
+          <span class="btn-spinner hidden"></span>
+        </button>
+      </div>
+      <div class="examples">
+        <span>Gợi ý:</span>
+        <button type="button" class="chip" data-q="Giá cổ phiếu NVDA hiện tại là bao nhiêu?">NVDA giá</button>
+        <button type="button" class="chip" data-q="Apple (AAPL) thuộc ngành gì và giá hiện tại?">AAPL ngành + giá</button>
+        <button type="button" class="chip" data-q="Tóm tắt MSFT: giá, vốn hóa, tin tức gần đây">MSFT đầy đủ</button>
+        <button type="button" class="chip" data-q="Phân tích AAPL: SMA, RSI và vẽ biểu đồ 6 tháng">AAPL chart + RSI</button>
+        <button type="button" class="chip" data-q="So sánh NVDA và AAPL: chỉ số kỹ thuật và biểu đồ giá">NVDA vs AAPL</button>
+      </div>
+    </section>
+
+    <div id="error-banner" class="error-banner hidden"></div>
+
+    <section class="compare-grid">
+      <article class="panel panel-chatbot">
+        <header class="panel-head">
+          <div>
+            <h2>🗣️ Chatbot thường</h2>
+            <p>LLM trả lời từ trí nhớ — không có dữ liệu live</p>
+          </div>
+          <div class="stats" id="chatbot-stats"></div>
+        </header>
+        <div class="panel-body">
+          <div id="chatbot-trace" class="trace trace-simple"></div>
+          <div id="chatbot-answer" class="answer-box empty">Chưa có kết quả</div>
+        </div>
+      </article>
+
+      <article class="panel panel-agent">
+        <header class="panel-head">
+          <div>
+            <h2>🤖 ReAct Agent</h2>
+            <p>Thought → Action → Observation → Final Answer</p>
+          </div>
+          <div class="stats" id="agent-stats"></div>
+        </header>
+        <div class="panel-body">
+          <div id="agent-trace" class="trace"></div>
+          <div id="agent-indicators" class="indicators-panel hidden"></div>
+          <div id="agent-charts" class="charts-panel hidden"></div>
+          <div id="agent-answer" class="answer-box empty">Chưa có kết quả</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="insight">
+      <h3>💡 Điểm khác biệt chính</h3>
+      <div class="insight-grid">
+        <div class="insight-card">
+          <strong>Chatbot</strong>
+          <span>1 lần gọi LLM · nhanh · dễ hallucinate giá cổ phiếu</span>
+        </div>
+        <div class="insight-card">
+          <strong>Agent</strong>
+          <span>Nhiều bước · gọi Yahoo Finance thật · trả lời dựa trên Observation</span>
+        </div>
+        <div class="insight-card">
+          <strong>Tools</strong>
+          <span>get_stock_price · get_technical_indicators · plot_stock_chart · get_stock_news</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Day 03 Lab — Agentic AI · Local Web Demo
+  </footer>
+
+  <script src="/js/app.js" type="module"></script>
+</body>
+</html>

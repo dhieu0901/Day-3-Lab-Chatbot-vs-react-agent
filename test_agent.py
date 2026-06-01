@@ -32,7 +32,7 @@ def main():
     agent = ReActAgent(llm=llm, tools=FINANCE_TOOLS, max_steps=5)
     
     # 3. Chạy thử nghiệm
-    user_query = "Bạn hãy kiểm tra giá cổ phiếu của Apple (AAPL) và NVIDIA (NVDA) hiện tại là bao nhiêu, và tìm xem có tin tức gì mới về Apple và Nvidia không. Dựa vào đó hãy cho tôi lời khuyên về việc nên mua cổ phiếu nào, tại sao?"
+    user_query = "Bạn hãy kiểm tra giá cổ phiếu của Apple (AAPL) và NVIDIA (NVDA) hiện tại là bao nhiêu, và tìm xem có tin tức gì mới về Apple và Nvidia không. Dựa vào đó hãy cho tôi lời khuyên về việc nên mua cổ phiếu nào, tại sao? Trả lời bằng tiếng Việt, giải thích rõ ràng"
     print(f"\nUser Query: {user_query}")
     
     print("\n--- Bắt đầu suy nghĩ ---")

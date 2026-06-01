@@ -46,11 +46,6 @@ def main():
     else:
         print(response)
     
-    print("\n--- NHẬN XÉT (PHASE 2) ---")
-    print("Quan sát kết quả: Chatbot không có Tool thường sẽ:")
-    print("1. Báo lỗi không thể truy cập internet/dữ liệu realtime.")
-    print("2. Hoặc bịa đặt (hallucinate) một mức giá cũ từ dữ liệu huấn luyện.")
-    print("Điều này làm nổi bật sức mạnh của ReAct Agent trong Phase 3!")
 
 if __name__ == "__main__":
     main()

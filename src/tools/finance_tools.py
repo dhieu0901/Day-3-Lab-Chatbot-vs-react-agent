@@ -1,5 +1,7 @@
 import json
+import os
 import yfinance as yf
+import pandas as pd
 
 def get_company_info(ticker: str) -> str:
     """
@@ -96,6 +98,47 @@ def get_stock_news(ticker: str) -> str:
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
 
+def get_technical_indicators(ticker: str) -> str:
+    """
+    Tính toán các chỉ số kỹ thuật cơ bản (SMA 20, SMA 50, RSI) cho một mã cổ phiếu.
+    
+    Args:
+        ticker (str): Mã chứng khoán (VD: "AAPL")
+        
+    Returns:
+        JSON string chứa các chỉ số kỹ thuật mới nhất.
+    """
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="6mo")
+        if hist.empty:
+            return json.dumps({"status": "error", "message": f"No data found for {ticker}"})
+            
+        close = hist['Close']
+        
+        # Simple Moving Averages
+        sma_20 = close.rolling(window=20).mean().iloc[-1]
+        sma_50 = close.rolling(window=50).mean().iloc[-1]
+        
+        # Relative Strength Index (RSI 14)
+        delta = close.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs)).iloc[-1]
+        
+        indicators = {
+            "status": "ok",
+            "ticker": ticker.upper(),
+            "SMA_20": round(float(sma_20), 2),
+            "SMA_50": round(float(sma_50), 2),
+            "RSI_14": round(float(rsi), 2),
+            "trend": "Bullish" if sma_20 > sma_50 else "Bearish"
+        }
+        return json.dumps(indicators, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
 # ── Tool registry cho Agent ───────────────────────────────────────────────────
 
 FINANCE_TOOLS = [
@@ -113,6 +156,11 @@ FINANCE_TOOLS = [
         "name": "get_stock_news",
         "description": "Get the latest news headlines and articles for a given stock ticker.",
         "function": get_stock_news,
+    },
+    {
+        "name": "get_technical_indicators",
+        "description": "Calculate technical indicators (SMA 20, SMA 50, RSI) to determine if a stock is overbought/oversold and its current trend.",
+        "function": get_technical_indicators,
     }
 ]
 

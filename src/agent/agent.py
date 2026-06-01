@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import time
 from typing import List, Dict, Any, Optional
 from src.core.llm_provider import LLMProvider
 from src.telemetry.logger import logger
@@ -10,7 +11,7 @@ class ReActAgent:
     A ReAct-style Agent that follows the Thought-Action-Observation loop.
     """
     
-    def __init__(self, llm: LLMProvider, tools: List[Dict[str, Any]], max_steps: int = 5):
+    def __init__(self, llm: LLMProvider, tools: List[Dict[str, Any]], max_steps: int = 10):
         self.llm = llm
         self.tools = tools
         self.max_steps = max_steps
@@ -112,6 +113,7 @@ CRITICAL RULES (V2 UPDATES):
                 logger.log_event("LLM_METRIC", {"error": "FORMAT_ERROR", "content": content})
                 
             steps += 1
+            time.sleep(12)  # Tránh lỗi Rate Limit khắt khe của Gemini (5 request/phút)
             
         logger.log_event("AGENT_END", {"steps": steps, "status": "timeout"})
         return "Agent reached maximum steps without finding a final answer."
